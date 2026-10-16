@@ -1,0 +1,48 @@
+workflows:
+  twinkletown-release:
+    name: Twinkle Town - App Store Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      groups:
+        - twinkletown_release
+      vars:
+        XCODE_PROJECT: TwinkleTown.xcodeproj
+        XCODE_SCHEME: TwinkleTown
+        BUNDLE_ID: com.twinkletown.sparklefriends
+        APP_ID: "6823207370"
+    scripts:
+      - name: Restore and validate Firebase configuration
+        script: |
+          set -euo pipefail
+          printf '%s' "$FIREBASE_CONFIG_BASE64" | base64 --decode > TwinkleTown/GoogleService-Info.plist
+          plutil -lint TwinkleTown/GoogleService-Info.plist
+          test "$(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' TwinkleTown/GoogleService-Info.plist)" = "$BUNDLE_ID"
+      - name: Set up App Store code signing
+        script: |
+          set -euo pipefail
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Set the next build number
+        script: |
+          set -euo pipefail
+          LATEST_BUILD=$(app-store-connect get-latest-build-number "$APP_ID" --all-versions)
+          [[ "$LATEST_BUILD" =~ ^[0-9]+$ ]]
+          agvtool new-version -all "$((LATEST_BUILD + 1))"
+      - name: Build App Store IPA
+        script: |
+          set -euo pipefail
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        submit_to_app_store: false

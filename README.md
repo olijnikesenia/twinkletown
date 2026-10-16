@@ -17,3 +17,9 @@ See [website/README.md](website/README.md) for local development and Cloudflare 
 ## App Store assets
 
 `app-store-screenshots/` contains screenshots captured from the running app on iPhone and iPad. Additional iPhone screens are in `iphone/extras/`.
+
+## Codemagic
+
+The `twinkletown-release` workflow in `codemagic.yaml` builds a signed App Store IPA and uploads it to TestFlight without submitting for App Review. It obtains the next build number from App Store Connect using the numeric Apple app ID.
+
+The app-scoped `twinkletown_release` secret group supplies `APP_STORE_CONNECT_PRIVATE_KEY`, `APP_STORE_CONNECT_KEY_IDENTIFIER`, `APP_STORE_CONNECT_ISSUER_ID`, `CERTIFICATE_PRIVATE_KEY`, and `FIREBASE_CONFIG_BASE64`. Firebase configuration is restored before Xcode resolves/builds the app. Signing files are fetched or created for `com.twinkletown.sparklefriends` during the build.
