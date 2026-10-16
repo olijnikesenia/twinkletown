@@ -1,0 +1,24 @@
+name = "twinkletown-site"
+main = "dist/worker.mjs"
+compatibility_date = "2026-10-15"
+account_id = "a17c13e78bda9eecc59456f8d90e860c"
+
+routes = [
+ { pattern = "twinkletown.site", custom_domain = true },
+ { pattern = "www.twinkletown.site", custom_domain = true }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "twinkletown-support"
+database_id = "bc8ad8e9-4f71-44b3-9511-5ed6f7352990"
+
+[vars]
+ATTRIBUTION_API = "https://banda-track-api.space/api/click-ios"
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[observability]
+enabled = true
+head_sampling_rate = 1
