@@ -2,81 +2,15 @@ import Foundation
 import Testing
 @testable import TwinkleTown
 
-@MainActor
-struct LaunchConnectionTests {
-    private func isolatedDefaults() -> UserDefaults {
-        UserDefaults(suiteName: "launch-tests-\(UUID().uuidString)")!
-    }
-
-    @Test func nativeAndWebDecisionsAreRestoredWithoutRequestingAgain() async throws {
-        let web = LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0,
-                                 url: URL(string: "https://example.com/experience"))
-        for expected in [LaunchDecision.game, web] {
-            let defaults = isolatedDefaults()
-            defer { defaults.removeObject(forKey: LaunchConnection.saveKey) }
-            var requests = 0
-            let first = LaunchConnection(defaults: defaults)
-            await first.resolve { requests += 1; return expected }
-            #expect(first.decision == expected)
-            let second = LaunchConnection(defaults: defaults)
-            await second.resolve { requests += 1; throw URLError(.notConnectedToInternet) }
-            #expect(second.decision == expected)
-            #expect(requests == 1)
+struct PrivacyPageTests {
+    @Test func playGameIsOnlyAvailableForOurPrivacyPage() {
+        for address in ["https://twinkletown.site/privacy?lang=en", "https://www.twinkletown.site/privacy/"] {
+            #expect(AppPages.isPrivacy(URL(string: address)))
         }
-    }
-
-    @Test func privacyDecisionOpensGameAndKeepsStatusAndURLAcrossLaunches() async {
-        let defaults = isolatedDefaults()
-        defer { defaults.removeObject(forKey: LaunchConnection.saveKey) }
-        let privacy = LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0,
-                                     url: URL(string: "https://twinkletown.site/privacy?lang=en"))
-        let first = LaunchConnection(defaults: defaults)
-        await first.resolve { privacy }
-        #expect(first.decision?.opensGame == true)
-        #expect(first.decision?.privacyURL == privacy.url)
-        let restored = LaunchConnection(defaults: defaults)
-        await restored.resolve { Issue.record("Saved privacy must not request API again"); return .game }
-        #expect(restored.decision == privacy)
-        #expect(restored.decision?.twinkleState == 0)
-        #expect(restored.decision?.opensGame == true)
-        #expect(restored.decision?.privacyURL == privacy.url)
-        let unrelated = LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0,
-                                       url: URL(string: "https://example.com/privacy"))
-        #expect(!unrelated.opensGame)
-        #expect(unrelated.privacyURL == nil)
-    }
-
-    @Test func networkFailureOpensGameButRetriesOnNextLaunch() async {
-        let defaults = isolatedDefaults()
-        defer { defaults.removeObject(forKey: LaunchConnection.saveKey) }
-        let first = LaunchConnection(defaults: defaults)
-        await first.resolve { throw URLError(.timedOut) }
-        #expect(first.decision == .game)
-        #expect(defaults.data(forKey: LaunchConnection.saveKey) == nil)
-        let second = LaunchConnection(defaults: defaults)
-        #expect(second.decision == nil)
-        await second.resolve { .game }
-        #expect(second.decision == .game)
-    }
-
-    @Test func invalidAndCorruptedDecisionsAreNeverUsed() async {
-        let defaults = isolatedDefaults()
-        defer { defaults.removeObject(forKey: LaunchConnection.saveKey) }
-        let invalid = [
-            LaunchDecision(twinkleFlow: .game, twinkleState: 0, url: nil),
-            LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0, url: nil),
-            LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0, url: URL(string: "http://example.com")),
-            LaunchDecision(twinkleFlow: .twinkletown, twinkleState: 0, url: URL(string: "https://user:pass@example.com"))
-        ]
-        for decision in invalid {
-            #expect(!decision.isValid)
-            let connection = LaunchConnection(defaults: defaults)
-            await connection.resolve { decision }
-            #expect(connection.decision == .game)
-            #expect(defaults.data(forKey: LaunchConnection.saveKey) == nil)
+        for address in ["https://twinkletown.site/", "https://twinkletown.site/support", "https://example.com/privacy", "http://twinkletown.site/privacy", "https://twinkletown.site.evil.com/privacy", "https://user:pass@twinkletown.site/privacy", "https://twinkletown.site:8443/privacy"] {
+            #expect(!AppPages.isPrivacy(URL(string: address)))
         }
-        defaults.set(Data("bad json".utf8), forKey: LaunchConnection.saveKey)
-        #expect(LaunchConnection(defaults: defaults).decision == nil)
+        #expect(!AppPages.isPrivacy(nil))
     }
 }
 

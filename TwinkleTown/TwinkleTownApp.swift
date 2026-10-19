@@ -8,7 +8,7 @@ struct TwinkleTownApp: App {
 
     var body: some Scene {
         WindowGroup {
-            LaunchRootView()
+            RootView()
                 .environment(state)
                 // Dark scheme only to get a white status bar; every game color is set explicitly.
                 .preferredColorScheme(.dark)

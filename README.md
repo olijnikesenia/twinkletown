@@ -8,7 +8,7 @@ A SwiftUI and SpriteKit puzzle game for iPhone and iPad, with a Cloudflare Worke
 2. Add your Firebase iOS configuration as `TwinkleTown/GoogleService-Info.plist` (excluded from Git).
 3. Choose your signing team and run the `TwinkleTown` scheme on an iPhone or iPad simulator.
 
-The app includes Diamond Match, Crystal Sorting, Diamond Memory, local progression, cosmetic rewards, a garden and fictional leaderboards. Successful launch routing decisions are saved locally. Firebase Messaging handles optional push registration.
+The app includes Diamond Match, Crystal Sorting, Diamond Memory, local progression, cosmetic rewards, a garden and fictional leaderboards. It opens the game directly and makes no launch API or remote-configuration request. Privacy Policy and Website remain available from Settings in the embedded browser. Firebase Messaging handles optional push registration.
 
 ## Website
 

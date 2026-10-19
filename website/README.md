@@ -6,7 +6,8 @@ Public Cloudflare Worker: https://twinkletown.site
 - `/privacy` — Privacy Policy.
 - `/support` — support form and FAQ.
 - `POST /api/contact` — validates and stores support requests in private D1.
-- `POST /api/twinkletown-launch` — launch routing API, connected to the iOS first-launch flow.
+- `POST /api/launcher` — retained server endpoint; the iOS app does not call it.
+- `POST /api/twinkletown-launch` — temporary compatibility alias for earlier builds.
 
 No runtime dependencies. Screenshots are compressed WebP files, served as embedded Worker assets. Cloudflare R2 was not enabled in this account; it is not needed for this site. No Cloudflare or S3 credentials are stored in the repository.
 
@@ -42,42 +43,12 @@ Requests are stored immediately. Daily cleanup at 03:00 UTC deletes requests old
 
 Email notifications are implemented but not enabled: supply a `RESEND_API_KEY` secret and `CONTACT_FROM_EMAIL` from a verified Resend sender/domain. Notifications go to `info@pedrolord8578w.site`; a provider outage does not discard the stored request. No notification delivery was claimed or tested without these credentials.
 
-## Launch API contract
+## Retained launch endpoint
 
-```http
-POST https://twinkletown.site/api/twinkletown-launch
-Content-Type: application/json
-```
+POST `/api/launcher` (alias `/api/twinkletown-launch`) accepts `appid`, `requestId` (install UUID from the Keychain) and optional `pushToken`. The Worker forwards the unchanged payload to Banda, waits (8 s timeout) and keeps Banda's URL only for HTTP 200 + `https:` + `hostname === "twinkletown.site"`; everything else resolves to `https://twinkletown.site/privacy?lang=en`.
 
-```json
-{
-  "appid": "com.twinkletown.sparklefriends",
-  "idfv": "optional-vendor-identifier",
-  "userAgent": "optional-user-agent",
-  "deviceName": "optional-device-name"
-}
-```
+The endpoint remains deployed for compatibility and diagnostics, but current iOS builds do not call it.
 
-Optional string fields: `idfa`, `idfv`, `pushToken`, `userAgent`, `deviceName` (up to 2048 characters each). JSON request size is limited to 16 KiB. Unknown app IDs are rejected. `appid` is renamed to `appId` upstream; IP and country come from Cloudflare, not the JSON body. Upstream: `https://banda-track-api.space/api/click-ios`. Network timeout: 8 seconds. Cloudflare logs record `app_to_cf`, `cf_to_banda`, `banda_to_cf` and `cf_to_app` with one `requestId`. Payloads are sanitised: IP/device identifiers are masked and URL queries are omitted. The response exposes the correlation ID in `X-Request-ID`.
+Server secrets and variables are managed in Cloudflare and are not bundled with the app.
 
-Upstream HTTP 202 → HTTP 200:
-
-```json
-{"twinkleFlow":"game","twinkleState":1}
-```
-
-Upstream successful JSON URL → HTTP 200:
-
-```json
-{"twinkleFlow":"twinkletown","twinkleState":0,"url":"https://returned-destination.example"}
-```
-
-Network errors, non-success status or invalid URL → HTTP 200:
-
-```json
-{"twinkleFlow":"twinkletown","twinkleState":0,"url":"https://twinkletown.site/privacy?lang=en"}
-```
-
-Only HTTPS destinations without embedded credentials are accepted. JSON can be a URL string or an object with `url`. This follows the reference project's 202/native and URL/web behavior, with Twinkle-specific response keys. The iOS app calls this route with `appid` and an optional FCM `pushToken` after notification permission is granted, validates and caches successful decisions, and shows an embedded web page or the game. A returned Privacy Policy URL on twinkletown.site opens the game while preserving the original saved status and URL. Settings → Open Privacy Policy opens that saved URL on demand. Previously cached policy decisions use the same rule without another request. A client network failure opens the game without persisting that fallback. IDFA, IDFV and device name are not sent by the app. Notification permission is requested on launch; Firebase Messaging/APNs registration starts after approval. The initial request waits up to three seconds for FCM after the permission result. Late/refreshed FCM tokens are received by the SDK but are not automatically resent through the cached launch endpoint.
-
-The in-app Privacy text, website policy and local App Review Notes describe the connection check. Review App Store privacy answers before submitting a build with this integration, including any data processing by the routing provider and returned pages.
+The app opens the game directly. Privacy Policy and Website are available from Settings in the existing embedded browser.

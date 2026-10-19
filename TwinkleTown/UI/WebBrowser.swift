@@ -15,6 +15,7 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
     @Published private(set) var canGoForward = false
     @Published private(set) var isLoading = false
     @Published private(set) var progress = 0.0
+    @Published private(set) var currentURL: URL?
 
     let webView: WKWebView
     private var downloadDestination: URL?
@@ -55,7 +56,8 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
     }
 
     func load(_ url: URL) {
-        guard webView.url == nil else { return }
+        guard webView.url == nil, AppPages.isWebsite(url) else { return }
+        currentURL = url
         webView.load(URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 30))
     }
 
@@ -103,7 +105,15 @@ final class WebViewModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
             return
         }
 
-        if scheme == "http" || scheme == "https" || scheme == "about" {
+        if scheme == "http" || scheme == "https" {
+            guard AppPages.isWebsite(url) else {
+                decisionHandler(.cancel)
+                if navigationAction.navigationType == .linkActivated {
+                    UIApplication.shared.open(url)
+                }
+                return
+            }
+            if navigationAction.targetFrame?.isMainFrame != false { currentURL = url }
             if navigationAction.shouldPerformDownload {
                 decisionHandler(.download)
             } else if navigationAction.targetFrame == nil {
@@ -264,13 +274,16 @@ struct LaunchWebScreen: View {
                 ProgressView(value: browser.progress).progressViewStyle(.linear).tint(Palette.hotPink)
             }
             WebView(webView: browser.webView).accessibilityIdentifier("webBrowser.webView")
-            HStack(spacing: 8) {
-                Button(action: browser.goBack) { Image(systemName: "chevron.left") }
-                    .disabled(!browser.canGoBack).accessibilityLabel("Previous page")
-                Button(action: browser.goForward) { Image(systemName: "chevron.right") }
-                    .disabled(!browser.canGoForward).accessibilityLabel("Next page")
-                Spacer()
-                Button(action: browser.reload) { Image(systemName: "arrow.clockwise") }.accessibilityLabel("Reload")
+            ZStack {
+                HStack(spacing: 8) {
+                    Button(action: browser.goBack) { Image(systemName: "chevron.left") }
+                        .disabled(!browser.canGoBack).accessibilityLabel("Previous page")
+                    Button(action: browser.goForward) { Image(systemName: "chevron.right") }
+                        .disabled(!browser.canGoForward).accessibilityLabel("Next page")
+                    Spacer()
+                    Button(action: browser.reload) { Image(systemName: "arrow.clockwise") }
+                        .accessibilityLabel("Reload")
+                }
             }
             .font(.system(size: 16, weight: .bold)).foregroundStyle(.white)
             .padding(.horizontal, 12).frame(height: 36).background(.black)

@@ -5,7 +5,7 @@ import SwiftUI
 struct SettingsScreen: View {
     @Environment(GameState.self) private var state
     @Environment(Router.self) private var router
-    @Environment(\.launchPrivacyURL) private var privacyURL
+    private let privacyURL = AppPages.privacy
     @State private var confirmReset = false
     @State private var webURL: URL?
 
